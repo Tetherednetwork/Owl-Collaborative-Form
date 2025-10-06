@@ -1,0 +1,5 @@
+{
+  "name": "Collaborative Form Builder",
+  "description": "An application that allows teams to build and fill out multi-section forms collaboratively. Define sections, assign them to team members via email, and track progress in real-time as the form is completed step-by-step.",
+  "requestFramePermissions": []
+}
