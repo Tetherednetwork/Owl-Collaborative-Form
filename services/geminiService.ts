@@ -106,8 +106,14 @@ Generate the output as a JSON array following the provided schema. Ensure all fi
         showSubmitterEmail: true,
     }));
 
+    const formId = `form_${Date.now()}`;
+    // Create a concise name from the prompt, capitalizing the first letter.
+    const rawName = prompt.length > 50 ? prompt.substring(0, 47) + '...' : prompt;
+    const formName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
 
     return {
+        id: formId,
+        name: formName,
         theme: themes.default,
         sections: sectionsWithFieldIds,
     };

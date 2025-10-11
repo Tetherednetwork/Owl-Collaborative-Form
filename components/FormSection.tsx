@@ -303,7 +303,13 @@ const FormSectionComponent: React.FC<FormSectionProps> = ({ section, submission,
                                     </div>
                                 );
                             case FormFieldType.SIGNATURE:
-                                return <SignaturePad value={formData[field.name]} onChange={dataUrl => handleFormValueChange(field.name, dataUrl)} />;
+                                return <SignaturePad 
+                                    value={formData[field.name]} 
+                                    onChange={dataUrl => handleFormValueChange(field.name, dataUrl)}
+                                    penColor={field.penColor}
+                                    backgroundColor={field.backgroundColor}
+                                    disabled={isPreview}
+                                />;
                             case FormFieldType.FILE_UPLOAD:
                                 return <input {...commonProps} type="file" onChange={e => handleFormValueChange(field.name, e.target.files)} />;
                             case FormFieldType.IMAGE_UPLOAD:

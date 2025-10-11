@@ -30,22 +30,22 @@ export interface FormTheme {
 
 export const themes: Record<string, FormTheme> = {
   default: {
-    name: 'Owl Inspired',
+    name: 'Lovely Owl',
     className: 'theme-owl',
     styles: {
-      container: 'bg-slate-100 text-slate-800',
+      container: 'bg-gradient-to-br from-sky-100 to-amber-100 text-slate-900',
       section: {
-        active: 'bg-white border-[#00a4d7] ring-2 ring-[#00a4d7]/50',
-        completed: 'bg-white border-green-500',
-        pending: 'bg-slate-50 border-slate-300',
+        active: 'bg-white/80 backdrop-blur-sm border-[#00a4d7] ring-2 ring-[#00a4d7]/50 shadow-lg',
+        completed: 'bg-white/70 backdrop-blur-sm border-green-500/50',
+        pending: 'bg-slate-50/70 backdrop-blur-sm border-slate-300',
       },
       button: {
-        primary: 'bg-[#00a4d7] hover:bg-[#0093c4] focus:ring-[#00a4d7] text-white',
+        primary: 'bg-[#00a4d7] hover:bg-[#0093c4] focus:ring-[#00a4d7] text-white shadow-md hover:shadow-lg transition-all',
       },
-      input: 'bg-white border-slate-300 text-slate-900 focus:ring-[#00a4d7] focus:border-[#00a4d7]',
+      input: 'bg-white/70 border-slate-300 text-slate-900 focus:ring-[#00a4d7] focus:border-[#00a4d7] backdrop-blur-sm',
       stepper: {
         completed: 'bg-[#00a4d7]',
-        active: 'bg-[#f1b434] ring-4 ring-[#f1b434]/50',
+        active: 'bg-[#f1b434] ring-4 ring-[#f1b434]/50 shadow-md',
         pending: 'bg-slate-300',
       }
     }

@@ -4,34 +4,43 @@ import { themes, FormTheme } from '../themes';
 import { TrashIcon } from '../icons/TrashIcon';
 
 interface PropertiesPanelProps {
-  selectedItem: { type: 'field', data: FormField, sectionId: string } | { type: 'section', data: FormSection } | null;
+  selectedItem: { type: 'field', data: FormField, sectionId: string } | { type: 'section', data: FormSection } | { type: 'form', data: { name: string } } | null;
   theme: FormTheme;
   onUpdateField: (sectionId: string, fieldId: string, updatedValues: Partial<FormField>) => void;
   onUpdateSection: (sectionId: string, updatedValues: Partial<FormSection>) => void;
+  onUpdateFormName: (name: string) => void;
   onUpdateTheme: (theme: FormTheme) => void;
   onClose: () => void;
 }
 
-const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedItem, theme, onUpdateField, onUpdateSection, onUpdateTheme, onClose }) => {
+const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedItem, theme, onUpdateField, onUpdateSection, onUpdateFormName, onUpdateTheme, onClose }) => {
   
   const handleClose = (e: React.MouseEvent) => {
       e.stopPropagation();
       onClose();
   }
 
+  const getTitle = () => {
+    if (!selectedItem || selectedItem.type === 'form') return 'Form Properties';
+    return `${selectedItem.type} Properties`;
+  }
+
   return (
     <aside className="w-full md:w-80 p-4 bg-slate-50/70 backdrop-blur-sm rounded-lg border border-slate-200">
         <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-bold text-slate-900 capitalize">
-                {selectedItem ? `${selectedItem.type} Properties` : 'Form Properties'}
+                {getTitle()}
             </h2>
-            {selectedItem && (
+            {selectedItem && selectedItem.type !== 'form' && (
                  <button onClick={handleClose} className="p-1 text-slate-400 hover:text-slate-800">&times;</button>
             )}
         </div>
       
-      {!selectedItem && (
+      {(!selectedItem || selectedItem.type === 'form') && (
           <FormProperties 
+            // FIX: Use a type-safe ternary to access `name` only when `selectedItem.type` is 'form'.
+            name={(selectedItem && selectedItem.type === 'form') ? selectedItem.data.name : ''}
+            onUpdateName={onUpdateFormName}
             theme={theme}
             onUpdateTheme={onUpdateTheme}
           />
@@ -71,7 +80,7 @@ const ThemeColorPreview: React.FC<{ theme: FormTheme }> = ({ theme }) => {
     );
 };
 
-const FormProperties: React.FC<{theme: FormTheme, onUpdateTheme: (theme: FormTheme) => void}> = ({theme, onUpdateTheme}) => {
+const FormProperties: React.FC<{name: string, onUpdateName: (name: string) => void, theme: FormTheme, onUpdateTheme: (theme: FormTheme) => void}> = ({name, onUpdateName, theme, onUpdateTheme}) => {
     const handleThemeSelect = (themeKey: string) => {
         onUpdateTheme(themes[themeKey]);
     };
@@ -106,24 +115,31 @@ const FormProperties: React.FC<{theme: FormTheme, onUpdateTheme: (theme: FormThe
     const customContainerStyles = theme.customStyles?.container || {};
 
     return (
-        <div>
-            <label className="block text-sm font-medium text-slate-700">Form Theme Presets</label>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-                {Object.entries(themes).map(([key, themeOption]) => (
-                    <button
-                        key={key}
-                        onClick={() => handleThemeSelect(key)}
-                        className={`p-3 text-left rounded-md border-2 transition-all ${
-                            theme.name.startsWith(themeOption.name) ? 'border-[#00a4d7] ring-2 ring-[#00a4d7]/50' : 'border-slate-200 bg-white hover:border-[#00a4d7]'
-                        }`}
-                    >
-                        <span className="font-semibold text-sm">{themeOption.name}</span>
-                        <ThemeColorPreview theme={themeOption} />
-                    </button>
-                ))}
+        <div className="space-y-6">
+            <div>
+                <label htmlFor="formName" className="block text-sm font-medium text-slate-700">Form Name</label>
+                <input id="formName" type="text" value={name} onChange={e => onUpdateName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md bg-white text-slate-900" />
             </div>
 
-            <div className="mt-6 pt-6 border-t border-slate-200">
+            <div>
+                <label className="block text-sm font-medium text-slate-700">Theme Presets</label>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                    {Object.entries(themes).map(([key, themeOption]) => (
+                        <button
+                            key={key}
+                            onClick={() => handleThemeSelect(key)}
+                            className={`p-3 text-left rounded-md border-2 transition-all ${
+                                theme.name.startsWith(themeOption.name) ? 'border-[#00a4d7] ring-2 ring-[#00a4d7]/50' : 'border-slate-200 bg-white hover:border-[#00a4d7]'
+                            }`}
+                        >
+                            <span className="font-semibold text-sm">{themeOption.name}</span>
+                            <ThemeColorPreview theme={themeOption} />
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <div className="pt-6 border-t border-slate-200">
                 <h3 className="text-md font-semibold text-slate-900">Customize Theme</h3>
                 <p className="text-sm text-slate-500 mb-4">Changes will apply on top of the selected preset.</p>
 
@@ -225,6 +241,22 @@ const FieldProperties: React.FC<{field: FormField, sectionId: string, onUpdate: 
                         <input id="scaleMaxLabel" type="text" value={field.scaleMaxLabel || ''} onChange={e => update({scaleMaxLabel: e.target.value})} placeholder="e.g., Very Satisfied" className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md bg-white text-slate-900" />
                     </div>
                 </>
+            )}
+
+            {field.type === FormFieldType.SIGNATURE && (
+                <div className="pt-4 mt-4 border-t border-slate-200 space-y-4">
+                     <h4 className="text-sm font-semibold text-slate-900">Signature Pad Colors</h4>
+                     <div className="grid grid-cols-2 gap-4">
+                         <div>
+                             <label htmlFor="penColor" className="block text-xs font-medium text-slate-600">Pen Color</label>
+                             <input id="penColor" type="color" value={field.penColor || '#000000'} onChange={e => update({ penColor: e.target.value })} className="mt-1 w-full h-8 p-0 border-none rounded-md cursor-pointer" />
+                         </div>
+                         <div>
+                            <label htmlFor="backgroundColor" className="block text-xs font-medium text-slate-600">Background</label>
+                            <input id="backgroundColor" type="color" value={field.backgroundColor || '#FFFFFF'} onChange={e => update({ backgroundColor: e.target.value })} className="mt-1 w-full h-8 p-0 border-none rounded-md cursor-pointer" />
+                         </div>
+                     </div>
+                </div>
             )}
 
             {hasValidationOptions && (

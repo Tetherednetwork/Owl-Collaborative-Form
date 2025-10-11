@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback, ReactNode, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, ReactNode } from 'react';
 import { FormDefinition, FormSection, FormField, FormFieldType } from '../types';
 import { PlusCircleIcon } from './icons/PlusCircleIcon';
 import FormElementsPanel from './form-builder/FormElementsPanel';
@@ -9,73 +9,44 @@ import { SaveIcon } from './icons/SaveIcon';
 import { EyeIcon } from './icons/EyeIcon';
 import FormPreviewModal from './FormPreviewModal';
 import { FormTheme, themes } from './themes';
-import { useAuth } from '../contexts/AuthContext';
+import { PublishIcon } from './icons/PublishIcon';
 
 interface FormBuilderProps {
-  onFormCreate: (definition: FormDefinition) => void;
+  formDefinition: FormDefinition;
+  onSaveDraft: (definition: FormDefinition) => void;
+  onPublish: (definition: FormDefinition) => void;
   setHeaderActions: (actions: ReactNode | null) => void;
-  onReset: () => void;
   showToast: (message: string) => void;
 }
 
-const FormBuilder: React.FC<FormBuilderProps> = ({ onFormCreate, setHeaderActions, onReset, showToast }) => {
-  const [sections, setSections] = useState<FormSection[]>([]);
-  const [theme, setTheme] = useState<FormTheme>(themes.default);
+const FormBuilder: React.FC<FormBuilderProps> = ({ formDefinition, onSaveDraft, onPublish, setHeaderActions, showToast }) => {
+  const [name, setName] = useState(formDefinition.name);
+  const [sections, setSections] = useState<FormSection[]>(formDefinition.sections);
+  const [theme, setTheme] = useState<FormTheme>(formDefinition.theme);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
-  const { currentUser } = useAuth();
-  const draftKey = useMemo(() => `formBuilderDraft_${currentUser?.email || 'guest'}`, [currentUser]);
-
-  // Load from draft on initial render
-  useEffect(() => {
-     try {
-      const savedDraft = localStorage.getItem(draftKey);
-      if (savedDraft) {
-        const { theme: savedTheme, sections: savedSections } = JSON.parse(savedDraft);
-        if (Array.isArray(savedSections) && savedSections.length > 0) {
-            setSections(savedSections);
-            if (typeof savedTheme === 'object' && savedTheme !== null) {
-              setTheme(savedTheme);
-            } else if (typeof savedTheme === 'string' && themes[savedTheme]) {
-              setTheme(themes[savedTheme]);
-            } else {
-              setTheme(themes.default);
-            }
-            return;
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load form draft from localStorage", error);
-      localStorage.removeItem(draftKey);
-    }
-    // Set default state if no valid draft is found
-    setSections([
-      {
-          id: `section_${Date.now()}`,
-          title: 'Section 1',
-          description: 'Description for section 1.',
-          assignedTo: '',
-          fields: [],
-          showSubmitterEmail: true,
-      }
-    ]);
-  }, [draftKey]);
 
   // Memoize the selected item to avoid re-calculating on every render
   const selectedItem = useMemo(() => {
     if (!selectedItemId) return null;
+    if (selectedItemId === 'form-properties') {
+      // FIX: Add 'as const' to narrow the type from string to 'form' for type compatibility with PropertiesPanel props.
+      return { type: 'form' as const, data: { name } };
+    }
     for (const section of sections) {
         if (section.id === selectedItemId) {
-            return { type: 'section', data: section as FormSection };
+            // FIX: Add 'as const' to narrow the type from string to 'section' for type compatibility with PropertiesPanel props.
+            return { type: 'section' as const, data: section as FormSection };
         }
         const field = section.fields.find(f => f.id === selectedItemId);
         if (field) {
-            return { type: 'field', data: field as FormField, sectionId: section.id };
+            // FIX: Add 'as const' to narrow the type from string to 'field' for type compatibility with PropertiesPanel props.
+            return { type: 'field' as const, data: field as FormField, sectionId: section.id };
         }
     }
     return null;
-  }, [selectedItemId, sections]);
+  }, [selectedItemId, sections, name]);
 
   const addSection = () => {
     const newSection: FormSection = {
@@ -148,7 +119,6 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ onFormCreate, setHeaderAction
   const moveField = (draggedFieldId: string, sourceSectionId: string, targetSectionId: string, targetIndex: number) => {
       let draggedField: FormField | undefined;
       
-      // Remove field from source
       const newSections = sections.map(section => {
           if (section.id === sourceSectionId) {
               draggedField = section.fields.find(f => f.id === draggedFieldId);
@@ -159,7 +129,6 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ onFormCreate, setHeaderAction
 
       if (!draggedField) return;
 
-      // Add field to target
       setSections(newSections.map(section => {
           if (section.id === targetSectionId) {
               const newFields = [...section.fields];
@@ -187,16 +156,12 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ onFormCreate, setHeaderAction
     });
   }, []);
   
-  const handleSaveDraft = useCallback(() => {
-    try {
-      const draft = { theme, sections };
-      localStorage.setItem(draftKey, JSON.stringify(draft));
-      showToast('Draft saved successfully!');
-    } catch (e) {
-      console.error('Failed to save draft:', e);
-      showToast('Error saving draft.');
-    }
-  }, [theme, sections, showToast, draftKey]);
+  const getCurrentDefinition = useCallback((): FormDefinition => ({
+    ...formDefinition,
+    name,
+    theme,
+    sections,
+  }), [formDefinition, name, theme, sections]);
 
   useEffect(() => {
     setHeaderActions(
@@ -206,20 +171,14 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ onFormCreate, setHeaderAction
           className="inline-flex items-center px-4 py-2 text-sm font-medium bg-white/10 text-white rounded-md hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#272458] focus:ring-white transition-colors"
         >
           <EyeIcon />
-          <span className="ml-2">Preview</span>
+          <span className="ml-2 hidden sm:inline">Preview</span>
         </button>
         <button
-            onClick={onReset}
-            className="px-4 py-2 text-sm font-medium bg-white/10 text-white rounded-md hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#272458] focus:ring-white transition-colors"
-        >
-            Start Over
-        </button>
-        <button
-          onClick={handleSaveDraft}
-          className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-[#00a4d7] rounded-md hover:bg-[#0093c4] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#272458] focus:ring-white transition-colors"
+          onClick={() => onSaveDraft(getCurrentDefinition())}
+          className="inline-flex items-center px-4 py-2 text-sm font-medium bg-white/20 text-white rounded-md hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#272458] focus:ring-white transition-colors"
         >
           <SaveIcon />
-          <span className="ml-2">Save Draft</span>
+          <span className="ml-2 hidden sm:inline">Save Draft</span>
         </button>
       </>
     );
@@ -227,10 +186,14 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ onFormCreate, setHeaderAction
     return () => {
       setHeaderActions(null);
     };
-  }, [handleSaveDraft, setHeaderActions, setIsPreviewing, onReset]);
+  }, [getCurrentDefinition, onSaveDraft, setHeaderActions, setIsPreviewing]);
 
-  const handleCreateForm = () => {
+  const handlePublishForm = () => {
     setError(null);
+    if (name.trim() === '') {
+      setError('Form name cannot be empty.');
+      return;
+    }
     const incompleteAssignments = sections.some(s => s.assignedTo.trim() === '' || !s.assignedTo.includes('@'));
     if (incompleteAssignments) {
         setError('All sections must be assigned to a valid email address.');
@@ -241,15 +204,14 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ onFormCreate, setHeaderAction
         setError('You must add at least one field to at least one section.');
         return;
     }
-    localStorage.removeItem(draftKey);
-    onFormCreate({ theme, sections: sectionsWithFields });
+    onPublish(getCurrentDefinition());
   };
 
   return (
     <>
       {isPreviewing && (
         <FormPreviewModal 
-          definition={{ theme, sections }} 
+          definition={getCurrentDefinition()}
           onClose={() => setIsPreviewing(false)} 
         />
       )}
@@ -257,7 +219,7 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ onFormCreate, setHeaderAction
         <div className="flex flex-col sm:flex-row justify-between items-center mb-10 gap-4">
             <div className='text-center sm:text-left'>
                 <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900 font-semibold">
-                Build Your Form
+                Form Builder
                 </h1>
                 <p className="mt-2 text-lg text-slate-600">
                 Drag, drop, and click to design your collaborative form.
@@ -269,6 +231,21 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ onFormCreate, setHeaderAction
             <FormElementsPanel />
             
             <main className="flex-grow w-full md:w-1/2 p-4 bg-white/70 backdrop-blur-sm rounded-lg border border-slate-200">
+                <div 
+                  className="mb-6 p-3 rounded-md border-2 border-transparent hover:border-slate-300 transition-colors" 
+                  onClick={() => setSelectedItemId('form-properties')}
+                >
+                  <label htmlFor="formName" className="text-xs text-slate-500">Form Name</label>
+                  <input
+                      id="formName"
+                      type="text"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      placeholder="Enter your form name"
+                      className={`font-bold text-2xl bg-transparent w-full focus:outline-none focus:ring-0 border-0 p-0 ${selectedItemId === 'form-properties' ? 'text-[#00a4d7]' : 'text-slate-800'}`}
+                  />
+                </div>
+
                 <FormCanvas 
                     sections={sections}
                     selectedItemId={selectedItemId}
@@ -295,6 +272,7 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ onFormCreate, setHeaderAction
                 theme={theme}
                 onUpdateField={updateField}
                 onUpdateSection={updateSection}
+                onUpdateFormName={setName}
                 onUpdateTheme={setTheme}
                 onClose={() => setSelectedItemId(null)}
             />
@@ -304,10 +282,11 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ onFormCreate, setHeaderAction
             {error && <p className="text-red-600 mb-4" role="alert">{error}</p>}
             <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
                 <button
-                onClick={handleCreateForm}
+                onClick={handlePublishForm}
                 className={`w-full sm:w-auto inline-flex items-center justify-center px-12 py-4 font-semibold rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${theme.styles.button.primary}`}
                 >
-                Finalize & Start Collaboration
+                <PublishIcon />
+                <span className="ml-2">Publish & Start Collaboration</span>
                 </button>
             </div>
         </div>
@@ -343,7 +322,7 @@ const FormCanvas: React.FC<FormCanvasProps> = ({ sections, selectedItemId, onSel
     const [fieldDropTarget, setFieldDropTarget] = useState<{sectionId: string; index: number} | null>(null);
 
     // State for section drag-and-drop
-    const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
+    const sectionRefs = React.useRef<(HTMLDivElement | null)[]>([]);
     const [sectionDropIndex, setSectionDropIndex] = useState<number | null>(null);
     
     useEffect(() => {
@@ -423,7 +402,6 @@ const FormCanvas: React.FC<FormCanvasProps> = ({ sections, selectedItemId, onSel
             }
         });
         
-        // Prevent dropping a section onto itself
         const draggedIndex = sections.findIndex(s => s.id === draggedItemId);
         if (closestIndex === draggedIndex || closestIndex === draggedIndex + 1) {
             setSectionDropIndex(null);
@@ -437,7 +415,6 @@ const FormCanvas: React.FC<FormCanvasProps> = ({ sections, selectedItemId, onSel
         e.preventDefault();
         
         const currentDraggedIndex = sections.findIndex(s => s.id === draggedItemId);
-        // Adjust index if moving item downwards
         const adjustedIndex = sectionDropIndex > currentDraggedIndex ? sectionDropIndex - 1 : sectionDropIndex;
 
         onMoveSection(draggedItemId, adjustedIndex);
@@ -455,7 +432,8 @@ const FormCanvas: React.FC<FormCanvasProps> = ({ sections, selectedItemId, onSel
                 <React.Fragment key={section.id}>
                     {draggedItemType === 'section' && sectionDropIndex === index && <DropIndicator />}
                     <div 
-                        ref={el => sectionRefs.current[index] = el}
+                        // FIX: The ref callback function must not return a value. Using a block body fixes this.
+                        ref={el => { sectionRefs.current[index] = el; }}
                         className={`bg-white backdrop-blur-sm rounded-lg border transition-all ${selectedItemId === section.id ? 'border-[#00a4d7] ring-2 ring-[#00a4d7]/50' : 'border-slate-200'} ${draggedItemId === section.id ? 'opacity-30' : ''}`}
                         onClick={() => onSelect(section.id)}
                     >

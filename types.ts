@@ -37,6 +37,8 @@ export interface FormField {
   min?: number;
   max?: number;
   pattern?: string;
+  penColor?: string;
+  backgroundColor?: string;
 }
 
 export interface FormSection {
@@ -49,6 +51,8 @@ export interface FormSection {
 }
 
 export interface FormDefinition {
+  id: string;
+  name: string;
   theme: FormTheme;
   sections: FormSection[];
 }
@@ -65,4 +69,15 @@ export type FormSectionStatus = 'completed' | 'active' | 'pending';
 
 export interface User {
   email: string;
+}
+
+export interface FormVersion {
+  versionId: string;
+  savedAt: string; // ISO string
+  definition: FormDefinition;
+}
+
+export interface DraftForm {
+  id: string; // Corresponds to FormDefinition.id
+  versions: FormVersion[];
 }
